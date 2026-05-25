@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0e17" />
+  <title>Finly — умные финансы</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root {
+      --bg: #0a0e17;
+      --accent: #00d26a;
+      --font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    html { -webkit-tap-highlight-color: transparent; }
+    body {
+      margin: 0;
+      min-height: 100dvh;
+      font-family: var(--font);
+      font-size: 16px;
+      color: #fff;
+      background: var(--bg);
+      background-image:
+        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(0, 210, 106, 0.08), transparent),
+        radial-gradient(ellipse 60% 40% at 100% 0%, rgba(30, 58, 95, 0.25), transparent);
+      -webkit-font-smoothing: antialiased;
+      padding-top: env(safe-area-inset-top, 0);
+    }
+    .app { max-width: 480px; margin: 0 auto; min-height: 100dvh; }
+    .screen { display: none; padding-bottom: calc(72px + env(safe-area-inset-bottom, 0)); }
+    .screen.active { display: block; }
+    .screen--full { padding-bottom: 32px; }
+    .page { padding: 20px; }
+    .btn-primary {
+      width: 100%; padding: 20px 24px; border: none; border-radius: 18px;
+      background: var(--accent); color: #0a0e17; font-size: 18px; font-weight: 600;
+      font-family: inherit; cursor: pointer; box-shadow: 0 8px 32px rgba(0, 210, 106, 0.25);
+    }
+    .btn-primary:active { transform: scale(0.98); }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-ghost {
+      padding: 10px 18px; border: 1px solid rgba(255,255,255,0.15); border-radius: 12px;
+      background: transparent; color: var(--accent); font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit;
+    }
+    .bottom-nav {
+      position: fixed; bottom: 0; left: 0; right: 0; display: flex; justify-content: space-around;
+      padding: 8px 16px calc(8px + env(safe-area-inset-bottom, 0));
+      background: rgba(10, 14, 23, 0.92); backdrop-filter: blur(20px);
+      border-top: 1px solid rgba(255,255,255,0.06); z-index: 100;
+    }
+    .bottom-nav.hidden { display: none; }
+    .nav-btn {
+      display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 20px;
+      border: none; background: none; color: rgba(255,255,255,0.4); font-size: 11px; font-weight: 500; cursor: pointer; font-family: inherit;
+    }
+    .nav-btn.active { color: var(--accent); }
+    .nav-btn__icon { font-size: 18px; }
+    .logo { display: block; font-size: 15px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
+    .tagline { font-size: 13px; color: rgba(255,255,255,0.45); }
+    .header-block { margin-bottom: 28px; }
+    .balance-label { font-size: 14px; color: rgba(255,255,255,0.5); margin: 0 0 8px; }
+    .balance-amount {
+      display: block; width: 100%; text-align: left; background: none; border: none; padding: 0;
+      font-size: clamp(40px, 10vw, 52px); font-weight: 700; letter-spacing: -0.03em; color: #fff; cursor: pointer; font-family: inherit;
+    }
+    .balance-hint { margin: 10px 0 0; font-size: 12px; color: rgba(255,255,255,0.35); }
+    .balance-edit { display: flex; gap: 12px; align-items: center; }
+    .balance-input {
+      flex: 1; font-size: 32px; font-weight: 700; background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 8px 14px; color: #fff; font-family: inherit;
+    }
+    .stats-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+    .stat-pill {
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 16px 18px;
+    }
+    .stat-pill span { display: block; font-size: 12px; color: rgba(255,255,255,0.45); margin-bottom: 6px; }
+    .stat-pill strong { font-size: 22px; font-weight: 600; }
+    .insight-card {
+      background: linear-gradient(135deg, rgba(0,210,106,0.12), rgba(255,255,255,0.03));
+      border: 1px solid rgba(0,210,106,0.2); border-radius: 20px; padding: 20px; margin-bottom: 28px;
+    }
+    .insight-card.warning {
+      background: linear-gradient(135deg, rgba(255,180,0,0.1), rgba(255,255,255,0.03));
+      border-color: rgba(255,180,0,0.25);
+    }
+    .insight-badge { display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); margin-bottom: 10px; }
+    .insight-card.warning .insight-badge { color: #ffb400; }
+    .insight-text { margin: 0; font-size: 17px; line-height: 1.45; }
+    .page-title { margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
+    .page-sub { margin: 6px 0 0; font-size: 14px; color: rgba(255,255,255,0.45); }
+    .page-header { display: flex; align-items: center; gap: 12px; margin-bottom: 32px; }
+    .page-header h1 { margin: 0; font-size: 22px; font-weight: 600; }
+    .btn-back {
+      width: 40px; height: 40px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.04); color: #fff; font-size: 20px; cursor: pointer;
+    }
+    .field-label { display: block; font-size: 13px; color: rgba(255,255,255,0.45); margin-bottom: 10px; }
+    .amount-wrap { position: relative; margin-bottom: 16px; }
+    .amount-input {
+      width: 100%; font-size: 48px; font-weight: 700; background: transparent; border: none;
+      border-bottom: 2px solid rgba(255,255,255,0.1); padding: 8px 48px 12px 0; color: #fff; font-family: inherit; outline: none;
+    }
+    .amount-input:focus { border-bottom-color: var(--accent); }
+    .amount-currency { position: absolute; right: 0; bottom: 18px; font-size: 24px; color: rgba(255,255,255,0.35); }
+    .quick-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 32px; }
+    .quick-btn {
+      padding: 10px 16px; border-radius: 100px; border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.8); font-size: 14px; cursor: pointer; font-family: inherit;
+    }
+    .cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 36px; }
+    .cat-btn {
+      display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 18px; border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.03); color: #fff; cursor: pointer; font-family: inherit; text-align: left;
+    }
+    .cat-btn.active { border-color: var(--accent); background: rgba(0,210,106,0.12); }
+    .cat-btn .icon { font-size: 24px; }
+    .forecast-card {
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 20px; margin-bottom: 28px;
+    }
+    .forecast-label { display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); margin-bottom: 10px; }
+    .forecast-text { margin: 0 0 10px; font-size: 17px; line-height: 1.45; }
+    .forecast-text strong { color: var(--accent); }
+    .forecast-meta { margin: 0; font-size: 12px; color: rgba(255,255,255,0.4); }
+    .section-title { margin: 0 0 16px; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(255,255,255,0.45); }
+    .cat-bar { margin-bottom: 16px; }
+    .cat-bar-head { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 8px; }
+    .cat-bar-track { height: 6px; background: rgba(255,255,255,0.08); border-radius: 100px; overflow: hidden; }
+    .cat-bar-fill { height: 100%; background: var(--accent); border-radius: 100px; transition: width 0.4s; }
+    .cat-bar-fill.warn { background: #ffb400; }
+    .tips-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+    .tips-list li {
+      padding: 16px 18px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 14px; font-size: 15px; line-height: 1.4;
+    }
+    .empty-text { color: rgba(255,255,255,0.5); font-size: 15px; line-height: 1.5; }
+    .history-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+    .history-item {
+      display: flex; align-items: center; gap: 14px; padding: 16px;
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px;
+    }
+    .history-icon {
+      font-size: 28px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;
+      background: rgba(255,255,255,0.05); border-radius: 12px;
+    }
+    .history-body { flex: 1; }
+    .history-cat { font-size: 15px; font-weight: 500; display: block; }
+    .history-date { font-size: 12px; color: rgba(255,255,255,0.4); }
+    .history-right { text-align: right; }
+    .history-amount { font-size: 16px; font-weight: 600; display: block; }
+    .history-del { border: none; background: none; color: rgba(255,255,255,0.25); font-size: 18px; cursor: pointer; }
+    input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
+    input[type=number] { -moz-appearance: textfield; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- Главная -->
+    <section id="screen-home" class="screen active page">
+      <header class="header-block">
+        <span class="logo">Finly</span>
+        <span class="tagline">умные финансы</span>
+      </header>
+      <p class="balance-label">Баланс</p>
+      <div id="balance-view">
+        <button type="button" class="balance-amount" id="btn-balance">0 ₽</button>
+        <p class="balance-hint" id="income-hint">Доход: 50 000 ₽ · нажми на баланс, чтобы изменить</p>
+      </div>
+      <div id="balance-edit" class="balance-edit" hidden>
+        <input type="number" class="balance-input" id="input-income" />
+        <button type="button" class="btn-ghost" id="btn-save-income">OK</button>
+      </div>
+      <div class="stats-row">
+        <div class="stat-pill"><span>Сегодня</span><strong id="stat-today">0 ₽</strong></div>
+        <div class="stat-pill"><span>Неделя</span><strong id="stat-week">0 ₽</strong></div>
+      </div>
+      <div class="insight-card" id="insight-card">
+        <span class="insight-badge">💡 Умный инсайт</span>
+        <p class="insight-text" id="insight-text"></p>
+      </div>
+      <button type="button" class="btn-primary" id="btn-add">+ Добавить расход</button>
+    </section>
+
+    <!-- Добавить расход -->
+    <section id="screen-add" class="screen screen--full page">
+      <div class="page-header">
+        <button type="button" class="btn-back" id="btn-back">←</button>
+        <h1>Новый расход</h1>
+      </div>
+      <label class="field-label">Сумма</label>
+      <div class="amount-wrap">
+        <input type="number" class="amount-input" id="input-amount" placeholder="0" inputmode="numeric" />
+        <span class="amount-currency">₽</span>
+      </div>
+      <div class="quick-row" id="quick-amounts"></div>
+      <label class="field-label">Категория</label>
+      <div class="cat-grid" id="cat-grid"></div>
+      <button type="button" class="btn-primary" id="btn-save" disabled>Сохранить</button>
+    </section>
+
+    <!-- Аналитика -->
+    <section id="screen-analytics" class="screen page">
+      <header class="header-block">
+        <h1 class="page-title">Аналитика</h1>
+        <p class="page-sub">Куда уходят деньги</p>
+      </header>
+      <div id="analytics-content"></div>
+      <h2 class="section-title">Советы</h2>
+      <ul class="tips-list" id="tips-list"></ul>
+    </section>
+
+    <!-- История -->
+    <section id="screen-history" class="screen page">
+      <header class="header-block">
+        <h1 class="page-title">История</h1>
+        <p class="page-sub" id="history-sub">Пока пусто</p>
+      </header>
+      <div id="history-content"></div>
+    </section>
+
+    <nav class="bottom-nav" id="bottom-nav">
+      <button type="button" class="nav-btn active" data-go="home"><span class="nav-btn__icon">◉</span>Главная</button>
+      <button type="button" class="nav-btn" data-go="analytics"><span class="nav-btn__icon">◫</span>Аналитика</button>
+      <button type="button" class="nav-btn" data-go="history"><span class="nav-btn__icon">☰</span>История</button>
+    </nav>
+  </div>
+
+  <script>
+(function () {
+  const STORAGE_KEY = 'finly-finance-v1';
+  const QUICK = [100, 300, 500, 1000, 2000];
+  const CATEGORIES = [
+    { id: 'food', label: 'Еда', icon: '🍔' },
+    { id: 'transport', label: 'Транспорт', icon: '🚗' },
+    { id: 'entertainment', label: 'Развлечения', icon: '🎬' },
+    { id: 'other', label: 'Другое', icon: '📦' },
+  ];
+  const CAT_MAP = Object.fromEntries(CATEGORIES.map(c => [c.id, c]));
+  const THRESHOLDS = { food: 35, entertainment: 25, transport: 30 };
+
+  let state = load();
+  let selectedCategory = 'food';
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return { income: 50000, expenses: [] };
+      const p = JSON.parse(raw);
+      return { income: p.income ?? 50000, expenses: Array.isArray(p.expenses) ? p.expenses : [] };
+    } catch { return { income: 50000, expenses: [] }; }
+  }
+  function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+
+  function formatMoney(n) {
+    return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(n);
+  }
+  function daysWord(n) {
+    const m10 = n % 10, m100 = n % 100;
+    if (m100 >= 11 && m100 <= 14) return 'дней';
+    if (m10 === 1) return 'день';
+    if (m10 >= 2 && m10 <= 4) return 'дня';
+    return 'дней';
+  }
+  function totalExp() { return state.expenses.reduce((s, e) => s + e.amount, 0); }
+  function balance() { return state.income - totalExp(); }
+  function isSameDay(a, b) {
+    return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  }
+  function forPeriod(days) {
+    const now = new Date(), start = new Date(now);
+    start.setDate(start.getDate() - days + 1);
+    start.setHours(0, 0, 0, 0);
+    return state.expenses.filter(e => new Date(e.date) >= start);
+  }
+  function todaySum() {
+    const t = new Date();
+    return state.expenses.filter(e => isSameDay(new Date(e.date), t)).reduce((s, e) => s + e.amount, 0);
+  }
+  function weekSum() { return forPeriod(7).reduce((s, e) => s + e.amount, 0); }
+  function percents() {
+    const total = totalExp(), sums = { food: 0, transport: 0, entertainment: 0, other: 0 };
+    state.expenses.forEach(e => { sums[e.category] += e.amount; });
+    if (!total) return { food: 0, transport: 0, entertainment: 0, other: 0 };
+    return Object.fromEntries(Object.keys(sums).map(k => [k, Math.round(sums[k] / total * 100)]));
+  }
+  function avgDaily() {
+    const t = forPeriod(7).reduce((s, e) => s + e.amount, 0);
+    return t ? t / 7 : 0;
+  }
+  function runway() {
+    const b = balance(), avg = avgDaily();
+    if (b <= 0) return 0;
+    if (avg <= 0) return null;
+    return Math.floor(b / avg);
+  }
+
+  function mainInsight() {
+    const b = balance(), week = weekSum(), pct = percents(), avg = avgDaily(), run = runway();
+    if (!state.expenses.length) return { text: 'Добавь первый расход — и я подскажу, куда уходят деньги', tone: 'neutral' };
+    if (b <= 0) return { text: 'Расходы уже больше дохода. Пора пересмотреть траты', tone: 'warning' };
+    if (run !== null && run <= 7) return { text: `Если продолжишь так — деньги закончатся через ${run} ${daysWord(run)}`, tone: 'warning' };
+    for (const [cat, th] of Object.entries(THRESHOLDS)) {
+      if (pct[cat] >= th) return { text: `Ты тратишь ${pct[cat]}% на ${CAT_MAP[cat].label.toLowerCase()} — это выше нормы`, tone: 'warning' };
+    }
+    if (run !== null && run <= 14) return { text: `При текущем темпе хватит примерно на ${run} ${daysWord(run)}`, tone: 'warning' };
+    if (week > state.income * 0.5 && state.income > 0) return { text: 'За неделю потратил больше половины дохода. Следи за темпом', tone: 'warning' };
+    const top = Object.entries(pct).sort((a, b) => b[1] - a[1])[0];
+    if (top[1] > 0 && top[1] <= 30) return { text: `Всё ок: больше всего уходит на ${CAT_MAP[top[0]].label.toLowerCase()} (${top[1]}%)`, tone: 'positive' };
+    return { text: 'Траты в норме. Так держать', tone: 'positive' };
+  }
+
+  function analyticsTips() {
+    const tips = [], pct = percents(), total = totalExp(), b = balance(), avg = avgDaily(), run = runway();
+    if (!state.expenses.length) return ['Пока нет данных. Добавь расходы — появятся советы'];
+    Object.entries(pct).forEach(([cat, p]) => {
+      if (p > 30) tips.push(`Ты тратишь слишком много на ${CAT_MAP[cat].label.toLowerCase()} (${p}%)`);
+    });
+    if (state.income > 0 && total > state.income * 0.8) tips.push('Общий расход близок к доходу — будь осторожнее');
+    if (b <= 0) tips.push('Баланс отрицательный. Сократи траты или увеличь доход');
+    if (run !== null && run <= 14) tips.push(`При текущем уровне трат деньги закончатся через ${run} ${daysWord(run)}`);
+    else if (run === null && b > 0 && avg === 0) tips.push('Мало данных для прогноза — добавь расходы за неделю');
+    else if (run !== null && run > 30) tips.push(`Запас прочности: ~${run} ${daysWord(run)} при текущем темпе`);
+    if (!tips.length) tips.push('Распределение трат выглядит сбалансированно');
+    return tips;
+  }
+
+  function formatDate(iso) {
+    const d = new Date(iso), t = new Date(), y = new Date(t);
+    y.setDate(y.getDate() - 1);
+    if (d.toDateString() === t.toDateString()) return 'Сегодня';
+    if (d.toDateString() === y.toDateString()) return 'Вчера';
+    return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+  }
+
+  function recordsWord(n) {
+    if (n === 1) return 'запись';
+    if (n >= 2 && n <= 4) return 'записи';
+    return 'записей';
+  }
+
+  function haptic() {
+    try { window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light'); } catch (_) {}
+  }
+
+  function showScreen(name) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('screen-' + name).classList.add('active');
+    document.getElementById('bottom-nav').classList.toggle('hidden', name === 'add');
+    document.querySelectorAll('.nav-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.go === name);
+    });
+    if (name === 'home') renderHome();
+    if (name === 'analytics') renderAnalytics();
+    if (name === 'history') renderHistory();
+    if (name === 'add') {
+      document.getElementById('input-amount').value = '';
+      document.getElementById('btn-save').disabled = true;
+      document.getElementById('input-amount').focus();
+    }
+  }
+
+  function renderHome() {
+    const ins = mainInsight();
+    document.getElementById('btn-balance').textContent = formatMoney(balance());
+    document.getElementById('income-hint').textContent =
+      `Доход: ${formatMoney(state.income)} · нажми на баланс, чтобы изменить`;
+    document.getElementById('stat-today').textContent = formatMoney(todaySum());
+    document.getElementById('stat-week').textContent = formatMoney(weekSum());
+    document.getElementById('insight-text').textContent = ins.text;
+    const card = document.getElementById('insight-card');
+    card.className = 'insight-card' + (ins.tone === 'warning' ? ' warning' : '');
+  }
+
+  function renderAnalytics() {
+    const el = document.getElementById('analytics-content');
+    const tipsEl = document.getElementById('tips-list');
+    if (!state.expenses.length) {
+      el.innerHTML = '<p class="empty-text">Добавь расходы — здесь появится разбивка</p>';
+    } else {
+      const run = runway(), avg = avgDaily(), pct = percents(), total = totalExp();
+      let forecast = '';
+      if (run === null) forecast = '<p class="forecast-text">Недостаточно данных для прогноза</p>';
+      else if (run === 0) forecast = '<p class="forecast-text" style="color:#ffb400">Деньги на исходе</p>';
+      else forecast = `<p class="forecast-text">При текущем уровне трат деньги закончатся через <strong>${run} ${daysWord(run)}</strong></p>`;
+      const bars = CATEGORIES.map(c => {
+        const p = pct[c.id];
+        return `<div class="cat-bar"><div class="cat-bar-head"><span>${c.icon} ${c.label}</span><span>${p}%</span></div>
+          <div class="cat-bar-track"><div class="cat-bar-fill${p > 30 ? ' warn' : ''}" style="width:${p}%"></div></div></div>`;
+      }).join('');
+      el.innerHTML = `<div class="forecast-card"><span class="forecast-label">Прогноз</span>${forecast}
+        <p class="forecast-meta">Средний расход: ${formatMoney(avg)}/день · всего: ${formatMoney(total)}</p></div>
+        <h2 class="section-title">По категориям</h2>${bars}`;
+    }
+    tipsEl.innerHTML = analyticsTips().map(t => `<li>${t}</li>`).join('');
+  }
+
+  function renderHistory() {
+    const sub = document.getElementById('history-sub');
+    const el = document.getElementById('history-content');
+    const n = state.expenses.length;
+    sub.textContent = n ? `${n} ${recordsWord(n)}` : 'Пока пусто';
+    if (!n) {
+      el.innerHTML = '<p class="empty-text">Здесь появятся все расходы. Начни с кнопки «Добавить расход»</p>';
+      return;
+    }
+    const sorted = [...state.expenses].sort((a, b) => new Date(b.date) - new Date(a.date));
+    el.innerHTML = '<ul class="history-list">' + sorted.map(e => {
+      const c = CAT_MAP[e.category];
+      return `<li class="history-item" data-id="${e.id}">
+        <div class="history-icon">${c.icon}</div>
+        <div class="history-body"><span class="history-cat">${c.label}</span><span class="history-date">${formatDate(e.date)}</span></div>
+        <div class="history-right"><span class="history-amount">−${formatMoney(e.amount)}</span>
+        <button type="button" class="history-del" data-del="${e.id}" aria-label="Удалить">×</button></div></li>`;
+    }).join('') + '</ul>';
+    el.querySelectorAll('[data-del]').forEach(btn => {
+      btn.onclick = () => {
+        state.expenses = state.expenses.filter(x => x.id !== btn.dataset.del);
+        save(); renderHistory(); haptic();
+      };
+    });
+  }
+
+  // Init UI
+  const quickEl = document.getElementById('quick-amounts');
+  QUICK.forEach(q => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'quick-btn'; b.textContent = q;
+    b.onclick = () => { document.getElementById('input-amount').value = q; updateSaveBtn(); };
+    quickEl.appendChild(b);
+  });
+
+  const catEl = document.getElementById('cat-grid');
+  CATEGORIES.forEach(c => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'cat-btn' + (c.id === 'food' ? ' active' : '');
+    b.dataset.cat = c.id;
+    b.innerHTML = `<span class="icon">${c.icon}</span><span>${c.label}</span>`;
+    b.onclick = () => {
+      selectedCategory = c.id;
+      catEl.querySelectorAll('.cat-btn').forEach(x => x.classList.toggle('active', x.dataset.cat === c.id));
+      haptic();
+    };
+    catEl.appendChild(b);
+  });
+
+  function updateSaveBtn() {
+    const v = parseInt(document.getElementById('input-amount').value, 10);
+    document.getElementById('btn-save').disabled = !v || v <= 0;
+  }
+
+  document.getElementById('input-amount').oninput = updateSaveBtn;
+  document.getElementById('btn-add').onclick = () => { haptic(); showScreen('add'); };
+  document.getElementById('btn-back').onclick = () => showScreen('home');
+  document.querySelectorAll('.nav-btn').forEach(b => b.onclick = () => showScreen(b.dataset.go));
+
+  document.getElementById('btn-balance').onclick = () => {
+    document.getElementById('balance-view').hidden = true;
+    document.getElementById('balance-edit').hidden = false;
+    document.getElementById('input-income').value = state.income;
+    document.getElementById('input-income').focus();
+  };
+  document.getElementById('btn-save-income').onclick = () => {
+    const v = parseInt(document.getElementById('input-income').value, 10);
+    if (!isNaN(v) && v >= 0) { state.income = v; save(); }
+    document.getElementById('balance-view').hidden = false;
+    document.getElementById('balance-edit').hidden = true;
+    renderHome(); haptic();
+  };
+
+  document.getElementById('btn-save').onclick = () => {
+    const val = parseInt(document.getElementById('input-amount').value, 10);
+    if (!val || val <= 0) return;
+    state.expenses.unshift({
+      id: crypto.randomUUID(),
+      amount: val,
+      category: selectedCategory,
+      date: new Date().toISOString(),
+    });
+    save(); haptic(); showScreen('home');
+  };
+
+  try {
+    const tg = window.Telegram?.WebApp;
+    if (tg) { tg.ready(); tg.expand(); tg.setHeaderColor('#0a0e17'); tg.setBackgroundColor('#0a0e17'); }
+  } catch (_) {}
+
+  renderHome();
+})();
+  </script>
+</body>
+</html>
